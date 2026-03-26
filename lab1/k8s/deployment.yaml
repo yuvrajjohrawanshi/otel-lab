@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-otel-app
+  namespace: my-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-otel-app
+  template:
+    metadata:
+      labels:
+        app: my-otel-app
+    spec:
+      containers:
+        - name: my-otel-app
+          image: my-otel-app:latest
+          # Never pull from registry — use the image we build locally
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          env:
+            # Tells OTel SDK what to call this service in Dynatrace
+            - name: OTEL_SERVICE_NAME
+              value: "my-otel-app"
+            # Where to send telemetry — points to our Collector service
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector:4317"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

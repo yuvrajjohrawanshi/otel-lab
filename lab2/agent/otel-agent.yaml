@@ -1,0 +1,127 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# OTel Agent — runs on EVERY monitored VM
+# Collects: host metrics, system logs, and app traces/metrics via OTLP
+# Sends everything to the central OTel Collector Gateway
+# ─────────────────────────────────────────────────────────────────────────────
+
+receivers:
+
+  # ── Host Infrastructure Metrics ──────────────────────────────────────────
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true           # CPU % per-core (gauge)
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true           # RAM % used (gauge)
+      load:                         # 1m / 5m / 15m load averages
+      disk:                         # I/O read/write bytes & operations
+      filesystem:
+        exclude_mount_points:
+          mount_points: ["/dev", "/proc", "/sys", "/run/lock"]
+          match_type: strict
+      network:                      # bytes sent/received per NIC
+      processes:                    # total process count
+      process:
+        mute_process_name_error: true
+        mute_process_io_error: true
+        metrics:
+          process.cpu.utilization:
+            enabled: true
+          process.memory.utilization:
+            enabled: true
+
+  # ── System Logs (journald → OTLP Logs) ───────────────────────────────────
+  journald:
+    directory: /run/log/journal     # default journald socket directory
+    units:
+      - my-otel-app                 # our standalone app's systemd unit
+    priority: info
+
+  filelog:
+    include:
+      - /var/log/messages           # RHEL general syslog
+      - /var/log/secure             # Auth / SSH events
+    start_at: end
+    include_file_path: true
+    include_file_name: false
+    operators:
+      - type: regex_parser
+        regex: '^(?P<time>[A-Z][a-z]{2}\s+\d+\s[\d:]+)\s(?P<host>\S+)\s(?P<ident>[^\[:\s]+)(?:\[(?P<pid>\d+)\])?\s*:\s*(?P<message>.*)$'
+        timestamp:
+          parse_from: attributes.time
+          layout: "%b %d %H:%M:%S"
+
+  # ── App Telemetry from the local Node.js app ─────────────────────────────
+  # The app sends to localhost:4317 (gRPC) — agent receives and forwards
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317   # local only — not exposed externally
+      http:
+        endpoint: 127.0.0.1:4318
+
+processors:
+
+  # ── Enrich every signal with VM hostname, OS, and IP ─────────────────────
+  resourcedetection:
+    detectors: [system, env]
+    system:
+      hostname_sources: [os]
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.id:
+          enabled: true
+        os.type:
+          enabled: true
+    timeout: 5s
+    override: false
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256                  # Agent is lightweight — cap at 256MB
+    spike_limit_mib: 64
+
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+
+exporters:
+
+  # ── Forward everything to the central Collector Gateway ──────────────────
+  otlp:
+    endpoint: "${env:COLLECTOR_ENDPOINT}"   # e.g. grpc://10.0.0.5:4317
+    tls:
+      insecure: true                         # set to false if using mTLS
+
+  debug:
+    verbosity: basic                         # local sanity-check logging
+
+service:
+  pipelines:
+
+    metrics:
+      receivers:  [hostmetrics]
+      processors: [resourcedetection, memory_limiter, batch]
+      exporters:  [otlp, debug]
+
+    logs:
+      receivers:  [journald, filelog]
+      processors: [resourcedetection, memory_limiter, batch]
+      exporters:  [otlp, debug]
+
+    traces:
+      receivers:  [otlp]
+      processors: [resourcedetection, memory_limiter, batch]
+      exporters:  [otlp, debug]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888        # Agent's own self-monitoring metrics

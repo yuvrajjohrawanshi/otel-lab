@@ -1,0 +1,25 @@
+[Unit]
+Description=OpenTelemetry Agent
+Documentation=https://opentelemetry.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=otelcol
+Group=otelcol
+ExecStart=/usr/local/bin/otelcol-contrib \
+    --config=/etc/otelcol/agent/otel-agent.yaml
+
+# Environment variables — set your Collector's IP here
+EnvironmentFile=/etc/otelcol/agent/otel-agent.env
+
+Restart=on-failure
+RestartSec=5s
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

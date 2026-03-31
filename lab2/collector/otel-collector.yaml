@@ -1,0 +1,68 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# OTel Collector Gateway — runs on a dedicated Collector VM (or same VM for lab)
+# Receives telemetry from all agents, then forwards to Dynatrace via ActiveGate
+# ─────────────────────────────────────────────────────────────────────────────
+
+receivers:
+
+  # ── Accept data from all OTel Agents on the network ──────────────────────
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317      # All agents send here
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  batch:
+    timeout: 5s
+    send_batch_size: 2000
+
+  # ── Convert cumulative histograms → delta for Dynatrace ──────────────────
+  # Dynatrace OTLP ingest rejects cumulative histograms (e.g. http.server.duration)
+  cumulativetodelta:
+
+exporters:
+
+  # ── Send to Dynatrace via ActiveGate OTLP endpoint ───────────────────────
+  # ActiveGate port 9993 is the generic ingest port (OTLP)
+  # URL format: https://<ACTIVEGATE_IP_OR_FQDN>:9993/e/<ENVIRONMENT_ID>/api/v2/otlp
+  otlphttp:
+    endpoint: "${env:DT_ACTIVEGATE_ENDPOINT}"
+    headers:
+      Authorization: "Api-Token ${env:DT_API_TOKEN}"
+    tls:
+      insecure_skip_verify: true    # remove in production with valid cert
+
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+
+    metrics:
+      receivers:  [otlp]
+      processors: [memory_limiter, cumulativetodelta, batch]
+      exporters:  [otlphttp, debug]
+
+    logs:
+      receivers:  [otlp]
+      processors: [memory_limiter, batch]
+      exporters:  [otlphttp, debug]
+
+    traces:
+      receivers:  [otlp]
+      processors: [memory_limiter, batch]
+      exporters:  [otlphttp, debug]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8889        # Collector's own self-monitoring metrics

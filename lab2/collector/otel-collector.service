@@ -1,0 +1,24 @@
+[Unit]
+Description=OpenTelemetry Collector Gateway
+Documentation=https://opentelemetry.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=otelcol
+Group=otelcol
+ExecStart=/usr/local/bin/otelcol-contrib \
+    --config=/etc/otelcol/collector/otel-collector.yaml
+
+# Environment variables — Dynatrace ActiveGate endpoint and API token
+EnvironmentFile=/etc/otelcol/collector/otel-collector.env
+
+Restart=on-failure
+RestartSec=5s
+
+LimitNOFILE=65536
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

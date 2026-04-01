@@ -1,15 +1,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# OTel Collector Gateway — runs on a dedicated Collector VM (or same VM for lab)
-# Receives telemetry from all agents, then forwards to Dynatrace via ActiveGate
+# OTel Collector Gateway — runs on a dedicated Collector VM (same VM for lab)
+# Receives LOGS from the OTel Agent, then forwards to Dynatrace via ActiveGate.
+# Metrics and Traces are intentionally ignored (handled by OneAgent).
 # ─────────────────────────────────────────────────────────────────────────────
 
 receivers:
 
-  # ── Accept data from all OTel Agents on the network ──────────────────────
+  # ── Accept logs from local OTel Agent ──────────────────────────────────────
   otlp:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:4317      # All agents send here
+        endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
 
@@ -24,21 +25,15 @@ processors:
     timeout: 5s
     send_batch_size: 2000
 
-  # ── Convert cumulative histograms → delta for Dynatrace ──────────────────
-  # Dynatrace OTLP ingest rejects cumulative histograms (e.g. http.server.duration)
-  cumulativetodelta:
-
 exporters:
 
-  # ── Send to Dynatrace via ActiveGate OTLP endpoint ───────────────────────
-  # ActiveGate port 9993 is the generic ingest port (OTLP)
-  # URL format: https://<ACTIVEGATE_IP_OR_FQDN>:9993/e/<ENVIRONMENT_ID>/api/v2/otlp
+  # ── Send logs to Dynatrace via ActiveGate OTLP endpoint ──────────────────
   otlphttp:
     endpoint: "${env:DT_ACTIVEGATE_ENDPOINT}"
     headers:
       Authorization: "Api-Token ${env:DT_API_TOKEN}"
     tls:
-      insecure_skip_verify: true    # remove in production with valid cert
+      insecure_skip_verify: true    # remove in production
 
   debug:
     verbosity: basic
@@ -46,17 +41,7 @@ exporters:
 service:
   pipelines:
 
-    metrics:
-      receivers:  [otlp]
-      processors: [memory_limiter, cumulativetodelta, batch]
-      exporters:  [otlphttp, debug]
-
     logs:
-      receivers:  [otlp]
-      processors: [memory_limiter, batch]
-      exporters:  [otlphttp, debug]
-
-    traces:
       receivers:  [otlp]
       processors: [memory_limiter, batch]
       exporters:  [otlphttp, debug]

@@ -1,45 +1,17 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# OTel Agent — runs on EVERY monitored VM
-# Collects: host metrics, system logs, and app traces/metrics via OTLP
-# Sends everything to the central OTel Collector Gateway
+# OTel Agent (Logs-Only Mode) — runs on EVERY monitored VM
+# Objective: Read OS-level and application logs and forward them to Collector.
+# Note: Metrics and Traces are intentionally omitted because Dynatrace OneAgent
+#       is running in full-stack mode to handle those signals.
 # ─────────────────────────────────────────────────────────────────────────────
 
 receivers:
-
-  # ── Host Infrastructure Metrics ──────────────────────────────────────────
-  hostmetrics:
-    collection_interval: 30s
-    scrapers:
-      cpu:
-        metrics:
-          system.cpu.utilization:
-            enabled: true           # CPU % per-core (gauge)
-      memory:
-        metrics:
-          system.memory.utilization:
-            enabled: true           # RAM % used (gauge)
-      load:                         # 1m / 5m / 15m load averages
-      disk:                         # I/O read/write bytes & operations
-      filesystem:
-        exclude_mount_points:
-          mount_points: ["/dev", "/proc", "/sys", "/run/lock"]
-          match_type: strict
-      network:                      # bytes sent/received per NIC
-      processes:                    # total process count
-      process:
-        mute_process_name_error: true
-        mute_process_io_error: true
-        metrics:
-          process.cpu.utilization:
-            enabled: true
-          process.memory.utilization:
-            enabled: true
 
   # ── System Logs (journald → OTLP Logs) ───────────────────────────────────
   journald:
     directory: /run/log/journal     # default journald socket directory
     units:
-      - my-otel-app                 # our standalone app's systemd unit
+      - otel-app                    # our vanilla standalone Node app
     priority: info
 
   filelog:
@@ -56,18 +28,9 @@ receivers:
           parse_from: attributes.time
           layout: "%b %d %H:%M:%S"
 
-  # ── App Telemetry from the local Node.js app ─────────────────────────────
-  # The app sends to localhost:4317 (gRPC) — agent receives and forwards
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 127.0.0.1:4317   # local only — not exposed externally
-      http:
-        endpoint: 127.0.0.1:4318
-
 processors:
 
-  # ── Enrich every signal with VM hostname, OS, and IP ─────────────────────
+  # ── Enrich every log with VM hostname, OS, and IP ────────────────────────
   resourcedetection:
     detectors: [system, env]
     system:
@@ -93,30 +56,20 @@ processors:
 
 exporters:
 
-  # ── Forward everything to the central Collector Gateway ──────────────────
+  # ── Forward logs to the central Collector Gateway ────────────────────────
   otlp:
-    endpoint: "${env:COLLECTOR_ENDPOINT}"   # e.g. grpc://10.0.0.5:4317
+    endpoint: "${env:COLLECTOR_ENDPOINT}"   # e.g. grpc://127.0.0.1:4317
     tls:
-      insecure: true                         # set to false if using mTLS
+      insecure: true
 
   debug:
-    verbosity: basic                         # local sanity-check logging
+    verbosity: basic
 
 service:
   pipelines:
 
-    metrics:
-      receivers:  [hostmetrics]
-      processors: [resourcedetection, memory_limiter, batch]
-      exporters:  [otlp, debug]
-
     logs:
       receivers:  [journald, filelog]
-      processors: [resourcedetection, memory_limiter, batch]
-      exporters:  [otlp, debug]
-
-    traces:
-      receivers:  [otlp]
       processors: [resourcedetection, memory_limiter, batch]
       exporters:  [otlp, debug]
 

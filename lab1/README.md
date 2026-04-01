@@ -348,7 +348,7 @@ data:
           exporters: [otlphttp, debug]
         logs:
           receivers: [k8s_events]
-          processors: [batch]
+          processors: [k8sattributes, batch]
           exporters: [otlphttp, debug]
 ---
 apiVersion: apps/v1
@@ -712,7 +712,7 @@ In production environments, you often run both.
 | OTel SDK auto-instrumenting Express | ✅ |
 | Traces reaching Dynatrace | ✅ |
 | Collector running | ✅ |
-| App metrics (with histogram fix pending) | ⚠️ Partial |
-| kubeletstats node metrics (fix pending) | ⚠️ Fix identified, not applied before lab ended |
+| App metrics (histogram fix applied) | ✅ |
+| kubeletstats node metrics (fix applied) | ✅ |
 | k8s_cluster metrics | ✅ |
 | k8s_events | ✅ |

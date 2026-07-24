@@ -22,10 +22,22 @@ echo "==> 2. Creating namespace $NAMESPACE..."
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
 echo "==> 3. Deploying OpenTelemetry Demo (minimal mode for KillerCoda)..."
+echo "    Using values: $SCRIPT_DIR/values-minimal.yaml"
+echo ""
+
 helm upgrade --install $RELEASE_NAME open-telemetry/opentelemetry-demo \
   --namespace $NAMESPACE \
-  -f "$SCRIPT_DIR/values-minimal.yaml"
+  -f "$SCRIPT_DIR/values-minimal.yaml" \
+  --debug 2>&1 | tail -30
 
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "ERROR: Helm install failed! Check the output above."
+  echo "Try: helm upgrade --install $RELEASE_NAME open-telemetry/opentelemetry-demo --namespace $NAMESPACE -f $SCRIPT_DIR/values-minimal.yaml --debug"
+  exit 1
+fi
+
+echo ""
 echo "=========================================================================="
 echo "Helm release created. Monitoring pod startup..."
 echo "=========================================================================="
@@ -37,7 +49,7 @@ ELAPSED=0
 INTERVAL=10
 
 while [ $ELAPSED -lt $TIMEOUT ]; do
-  clear
+  echo ""
   echo "==> Pod Status (elapsed: ${ELAPSED}s / ${TIMEOUT}s timeout)"
   echo "--------------------------------------------------------------------------"
   kubectl get pods -n $NAMESPACE -o wide

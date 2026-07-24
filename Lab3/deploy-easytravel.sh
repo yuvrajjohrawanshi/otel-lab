@@ -32,6 +32,9 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 echo "Waiting for OpenTelemetry Operator to be ready..."
 kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=opentelemetry-operator -n $NAMESPACE --timeout=300s
 
+echo "Waiting an extra 15 seconds for the Operator webhook to become fully active..."
+sleep 15
+
 echo "==> 4. Deploying OTel Collector and Auto-Instrumentation rules..."
 cat <<EOF | kubectl apply -f -
 ---
@@ -41,14 +44,17 @@ metadata:
   name: my-collector
   namespace: $NAMESPACE
 spec:
-  config:
+  config: |
     receivers:
       otlp:
         protocols:
           grpc:
+            endpoint: 0.0.0.0:4317
           http:
+            endpoint: 0.0.0.0:4318
     exporters:
-      debug: {}
+      debug:
+        verbosity: detailed
     service:
       pipelines:
         traces:

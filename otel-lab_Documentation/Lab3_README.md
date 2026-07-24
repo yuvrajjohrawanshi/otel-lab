@@ -5,56 +5,55 @@ project: otel-lab
 status: active
 ---
 
-# Lab 3: OpenTelemetry Operator & Demo Deployment
+# Lab 3: OpenTelemetry Demo Deployment
 
 ## Overview
-This lab provides scripts to deploy the OpenTelemetry Operator for auto-instrumentation, a BindPlane-managed OpenTelemetry Collector (Agent), and the official OpenTelemetry Astronomy Shop Demo to a Kubernetes cluster.
+This lab deploys the official **OpenTelemetry Astronomy Shop** demo application to a Kubernetes cluster. The demo comes with ~15 auto-instrumented microservices written in multiple languages (Go, Java, .NET, Node.js, Python, Rust, etc.) and a pre-configured OTel Collector.
 
-The data flow architecture is:
-`App (Auto-Instrumented) --> OTel Collector (BindPlane Agent) --> Dynatrace`
+**Data Flow:**
+`App (Auto-Instrumented) --> OTel Collector`
+
+## Architecture
+The demo includes:
+- **Microservices:** ~15 services (frontend, cart, checkout, payment, shipping, etc.)
+- **OTel Collector:** Receives traces, metrics, and logs from all services
+- **Jaeger:** Built-in trace visualization UI
+- **Grafana:** Built-in dashboards for metrics
 
 ## Prerequisites
-- A Kubernetes cluster.
-- `kubectl` configured to communicate with your cluster.
-- `helm` installed on your machine.
-- A BindPlane OP Environment (URL and Secret Key).
-- A Dynatrace environment URL and API token (configured within the BindPlane OP UI).
+- A running Kubernetes cluster
+- `kubectl` configured to communicate with your cluster
+- `helm` (v3+) installed
 
-## Scripts
+## Deployment
 
-### 1. [[deploy.sh]]
-This script automates the installation of the OpenTelemetry Operator and the BindPlane Agent.
-- Installs `cert-manager`.
-- Adds the OpenTelemetry and ObservIQ Helm repositories, and installs the OpenTelemetry Operator.
-- Deploys the BindPlane Agent to manage the OpenTelemetry Collector's configuration remotely.
-- Creates an `Instrumentation` resource that auto-instruments applications and forwards telemetry to the BindPlane Agent.
+Run the deployment script:
+```bash
+./deploy.sh
+```
 
-**Usage:**
-Before running, you must edit `deploy.sh` and update:
-- `BINDPLANE_URL`
-- `BINDPLANE_SECRET_KEY`
+This will:
+1. Add the OpenTelemetry Helm repository
+2. Create the `otel-demo` namespace
+3. Deploy the full demo via Helm
 
-### 2. [[deploy-demo.sh]]
-This script deploys the OpenTelemetry Demo application using a local Helm chart (located in `opentelemetry-demo/charts/astroshop`).
-- Creates a Kubernetes secret named `dt-credentials` containing your Dynatrace endpoint and token.
-- Deploys the demo via Helm, ensuring it uses the provided secret for Dynatrace authentication instead of generating a new one.
+## Accessing the Demo
 
-**Usage:**
-Before running, you must edit `deploy-demo.sh` and update:
-- `DYNATRACE_URL`
-- `DYNATRACE_TOKEN`
+**Frontend (Astronomy Shop):**
+```bash
+kubectl port-forward svc/otel-demo-frontend -n otel-demo 8080:8080
+```
+Then open http://localhost:8080
 
-## Execution Steps
-1. Update credentials in both scripts.
-2. Run the operator deployment:
-   ```bash
-   ./deploy.sh
-   ```
-3. Run the demo deployment:
-   ```bash
-   ./deploy-demo.sh
-   ```
-4. Monitor the startup:
-   ```bash
-   kubectl get pods -n opentelemetry
-   ```
+**Jaeger UI (Traces):**
+```bash
+kubectl port-forward svc/otel-demo-jaeger-query -n otel-demo 16686:16686
+```
+Then open http://localhost:16686
+
+## Monitoring
+
+```bash
+kubectl get pods -n otel-demo
+kubectl get svc -n otel-demo
+```

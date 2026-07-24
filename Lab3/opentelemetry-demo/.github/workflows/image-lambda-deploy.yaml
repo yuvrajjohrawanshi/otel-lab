@@ -1,0 +1,138 @@
+name: "Image lambda deployment"
+env:
+  TF_VERSION: 1.13.4
+  NODE_VERSION: "24.11.0"
+  AWS_REGION: "us-east-1"
+on:
+  push:
+    branches: [main]
+    paths:
+      - image-provider/**
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [image-provider]
+        env: [staging, playground-dev, playground-staging, playground]
+#        env: [staging, live, live3gen, playground-dev, playground-staging, playground]
+        include:
+          - env: staging
+            dt_url_secret: "DT_URL_STAGING"
+            dt_token_secret: "DT_TOKEN_STAGING"
+          # - env: live
+          #   dt_url_secret: "DT_URL_LIVE"
+          #   dt_token_secret: "DT_TOKEN_LIVE"            
+          # - env: live3gen
+          #   dt_url_secret: "DT_URL_LIVE3GEN"
+          #   dt_token_secret: "DT_TOKEN_LIVE3GEN"
+          - env: playground-dev
+            dt_url_secret: "DT_URL_PLAYGROUND_DEV"
+            dt_token_secret: "DT_TOKEN_PLAYGROUND_DEV"
+          - env: playground-staging
+            dt_url_secret: "DT_URL_PLAYGROUND_STAGING"
+            dt_token_secret: "DT_TOKEN_PLAYGROUND_STAGING"
+          - env: playground
+            dt_url_secret: "DT_URL_PLAYGROUND"
+            dt_token_secret: "DT_TOKEN_PLAYGROUND"            
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Determine changes
+        id: check_changes
+        run: |
+          ENV_DIR=${{ matrix.dir }}/terraform/environments
+          GENERAL_CHANGES=$(git diff --name-only ${{ github.sha }}^ ${{ github.sha }} -- ":(exclude)$ENV_DIR")
+
+          if [[ -n "$GENERAL_CHANGES" ]]; then
+            echo "Lambda implementation changes detected, proceeding with deployment"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          ENV_CHANGES=$(git diff --name-only ${{ github.sha }}^ ${{ github.sha }} -- $ENV_DIR/${{ matrix.env }})
+
+          if [[ -z "$ENV_CHANGES" ]]; then
+            echo "No changes for ${{ matrix.env }}, skipping deployment"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Changes for ${{ matrix.env }} detected, proceeding with deployment"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials from AWS account
+        id: aws_auth
+        if: steps.check_changes.outputs.skip == 'false'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHub-OIDC-TERRAFORM
+
+      - name: Set up Node.js
+        id: setup_node
+        if: steps.aws_auth.outcome == 'success'
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Prepare dependencies
+        id: deps_build
+        if: steps.setup_node.outcome == 'success'
+        working-directory: ${{ matrix.dir }}/src
+        run: npm ci --omit-dev
+
+      - name: Set up Terraform
+        if: steps.deps_build.outcome == 'success'
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform init
+        if: steps.check_changes.outputs.skip == 'false'
+        working-directory: ${{ matrix.dir }}/terraform/environments/${{ matrix.env }}
+        id: tf_init
+        run: terraform init
+
+      - name: Terraform plan
+        if: steps.tf_init.outcome == 'success'
+        working-directory: ${{ matrix.dir }}/terraform/environments/${{ matrix.env }}
+        id: tf_plan
+        run: terraform plan -no-color
+
+      - name: Terraform apply
+        if: steps.tf_plan.outcome == 'success'
+        working-directory: ${{ matrix.dir }}/terraform/environments/${{ matrix.env }}
+        id: tf_apply
+        run: terraform apply -no-color -auto-approve
+
+      - name: Send events to Dynatrace
+        if: steps.tf_apply.outcome == 'success'
+        uses: dynatrace-oss/dynatrace-github-action@v9.4.0
+        with:
+          url: ${{ secrets[matrix.dt_url_secret] }}
+          token: ${{ secrets[matrix.dt_token_secret] }}
+          events: |
+            - title: Github Actions for ${{ github.workflow }}
+              type: CUSTOM_DEPLOYMENT
+              entitySelector: type(SERVICE), entityName.equals("image-provider-${{ matrix.env }} in ${{ env.AWS_REGION }}")
+              properties:
+                source: GitHub
+                event.description: Image processing problem trigger from [PR](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+                github.repository: ${{ github.repository }}
+                github.ref: ${{ github.ref }}
+                github.event_name: ${{ github.event_name }}
+                github.commit: ${{ github.sha }}
+                terraform.outcome: ${{ steps.tf_apply.outcome }}

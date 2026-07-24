@@ -1,0 +1,43 @@
+name: Approve bot PR
+
+on:
+  pull_request:
+    types:
+      - opened
+    paths:
+      - flagd/flagd-config.yaml
+      - image-provider/src/src/getProductImage.js
+      - image-provider/terraform/modules/image-processing/locals.tf
+
+jobs:
+  approve:
+    name: Auto-approve
+    runs-on: ubuntu-22.04
+    if: github.event.pull_request.user.login == 'demoability-robot'
+    steps:
+      - name: Generate a token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: "APPROVE"
+            })
+      - uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: "squash"
+            })

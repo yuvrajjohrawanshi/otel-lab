@@ -1,0 +1,46 @@
+[
+    {
+        "image": "NationalParkFoundationExplorascope.jpg",
+        "bucket": "telescopes"
+    },
+    {
+        "image": "StarsenseExplorer.jpg",
+        "bucket": "telescopes"
+    },
+    {
+        "image": "EclipsmartTravelRefractorTelescope.jpg",
+        "bucket": "telescopes"
+    },
+    {
+        "image": "LensCleaningKit.jpg",
+        "bucket": "accessories"
+    },
+    {
+        "image": "RoofBinoculars.jpg",
+        "bucket": "telescopes"
+    },
+    {
+        "image": "SolarSystemColorImager.jpg",
+        "bucket": "accessories"
+    },
+    {
+        "image": "RedFlashlight.jpg",
+        "bucket": "accessories"
+    },
+    {
+        "image": "OpticalTubeAssembly.jpg",
+        "bucket": "telescopes"
+    },
+    {
+        "image": "SolarFilter.jpg",
+        "bucket": "accessories"
+    },
+    {
+        "image": "TheCometBook.jpg",
+        "bucket": "accessories"
+    },
+    {
+        "image": "Banner.png",
+        "bucket": "static"
+    }
+]

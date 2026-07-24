@@ -1,60 +1,14 @@
-# IDEs / local files
-*~
-.idea/
-*.iml
-*.ipr
-*.iws
-*.pyc
-.swp
-.DS_Store
-\#*\#
-.classpath
-.project
-.settings
-.vs/
-.vscode
+*.env
+!*.example.env
+r.yaml
+resources.yaml
+charts/**/charts
+kustomize/**/charts
+kustomize/**/secrets.yaml
+*.tgz
+internal/*.yaml
+!internal/test.yaml
 
-# AI Agents
-.claude/
-.codex/
-.cursor/
-.cursorrules
-
-# Build artifacts
-bin/
-obj/
-.gradle/
-.nb-gradle
-.nb-gradle-properties
-build/
-node_modules/
-coverage
-.next/
-out/
+node_modules
 build
-next-env.d.ts
-vendor/
-composer.lock
-.venv
-.dockerhub.env
-.ghcr.env
-*.apk
-/.lycheecache
-
-# Ignore copied/generated protobuf files
-/src/accounting/src/protos/
-/src/cart/src/protos/
-/src/fraud-detection/src/main/proto
-/src/payment/demo.proto
-/src/shipping/proto/
-/src/currency/proto
-/src/frontend/pb
-
-# Otel Demo specific
-docker-compose.override.yml
-
-src/frontend/cypress/videos
-src/frontend/cypress/screenshots
-src/shipping/target/
-
-!src/currency/build
+.terraform

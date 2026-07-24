@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]
+then
+    KUSTOMIZE_DIR="./kustomize/base"
+else
+    KUSTOMIZE_DIR="./kustomize/overlays/$1"
+    if [ ! -d $KUSTOMIZE_DIR ]
+    then
+        echo "There is no overlay for [$1]" >&2
+        exit 1
+    fi
+fi
+
+kustomize build \
+    --enable-helm \
+    --load-restrictor LoadRestrictionsNone \
+    "${KUSTOMIZE_DIR}" | kubectl apply -f -

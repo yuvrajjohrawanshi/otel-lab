@@ -12,6 +12,7 @@
 # Configuration
 NAMESPACE="otel-demo"
 RELEASE_NAME="otel-demo"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "==> 1. Adding OpenTelemetry Helm repository..."
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
@@ -20,9 +21,10 @@ helm repo update
 echo "==> 2. Creating namespace $NAMESPACE..."
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-echo "==> 3. Deploying OpenTelemetry Demo..."
+echo "==> 3. Deploying OpenTelemetry Demo (minimal mode for KillerCoda)..."
 helm upgrade --install $RELEASE_NAME open-telemetry/opentelemetry-demo \
-  --namespace $NAMESPACE
+  --namespace $NAMESPACE \
+  -f "$SCRIPT_DIR/values-minimal.yaml"
 
 echo "=========================================================================="
 echo "Helm release created. Monitoring pod startup..."

@@ -1,0 +1,51 @@
+# Minimal values for KillerCoda (4GB node)
+# Disables heavy/non-essential services to fit within resource constraints
+
+components:
+  # --- Keep: Core shopping flow + collector ---
+  frontend:
+    enabled: true
+  frontendProxy:
+    enabled: true
+  productCatalogService:
+    enabled: true
+  cartService:
+    enabled: true
+  checkoutService:
+    enabled: true
+  currencyService:
+    enabled: true
+  shippingService:
+    enabled: true
+  paymentService:
+    enabled: true
+  emailService:
+    enabled: true
+
+  # --- Disable: Non-essential services ---
+  adService:
+    enabled: false
+  recommendationService:
+    enabled: false
+  quoteService:
+    enabled: false
+  loadGenerator:
+    enabled: false
+  fraudDetectionService:
+    enabled: false
+  accountingService:
+    enabled: false
+  kafka:
+    enabled: false
+  imageprovider:
+    enabled: false
+  flagd:
+    enabled: false
+
+# Disable heavy observability sub-charts
+prometheus:
+  enabled: false
+grafana:
+  enabled: false
+opensearch:
+  enabled: false

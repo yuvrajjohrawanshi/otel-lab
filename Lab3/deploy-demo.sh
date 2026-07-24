@@ -20,7 +20,7 @@ kubectl create secret generic dt-credentials \
 
 echo "==> Deploying Dynatrace OpenTelemetry Demo via Helm..."
 # We use the local chart from the repository you just cloned
-helm upgrade --install $DEMO_RELEASE_NAME ./opentelemetry-demo/charts/astroshop \
+helm upgrade --install $DEMO_RELEASE_NAME "$(dirname "$0")/opentelemetry-demo/charts/astroshop" \
   --namespace $NAMESPACE \
   --set "components.dt-credentials.enabled=false"
 

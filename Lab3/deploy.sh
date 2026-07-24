@@ -25,13 +25,43 @@ helm upgrade --install $RELEASE_NAME open-telemetry/opentelemetry-demo \
   --namespace $NAMESPACE
 
 echo "=========================================================================="
+echo "Helm release created. Monitoring pod startup..."
+echo "=========================================================================="
+echo ""
+
+# Monitor pod status until all are Running/Completed (or timeout after 10 min)
+TIMEOUT=600
+ELAPSED=0
+INTERVAL=10
+
+while [ $ELAPSED -lt $TIMEOUT ]; do
+  clear
+  echo "==> Pod Status (elapsed: ${ELAPSED}s / ${TIMEOUT}s timeout)"
+  echo "--------------------------------------------------------------------------"
+  kubectl get pods -n $NAMESPACE -o wide
+  echo "--------------------------------------------------------------------------"
+
+  TOTAL=$(kubectl get pods -n $NAMESPACE --no-headers 2>/dev/null | wc -l)
+  READY=$(kubectl get pods -n $NAMESPACE --no-headers 2>/dev/null | grep -cE "Running|Completed")
+
+  echo ""
+  echo "Ready: $READY / $TOTAL pods"
+
+  if [ "$TOTAL" -gt 0 ] && [ "$READY" -eq "$TOTAL" ]; then
+    echo ""
+    echo "All pods are Running!"
+    break
+  fi
+
+  sleep $INTERVAL
+  ELAPSED=$((ELAPSED + INTERVAL))
+done
+
+echo ""
+echo "=========================================================================="
 echo "OpenTelemetry Demo Deployment Complete!"
 echo ""
 echo "The demo includes ~15 auto-instrumented microservices and an OTel Collector."
-echo ""
-echo "Useful commands:"
-echo "  kubectl get pods -n $NAMESPACE           # Check pod status"
-echo "  kubectl get svc -n $NAMESPACE             # List services"
 echo ""
 echo "To access the demo frontend:"
 echo "  kubectl port-forward svc/$RELEASE_NAME-frontend -n $NAMESPACE 8080:8080"

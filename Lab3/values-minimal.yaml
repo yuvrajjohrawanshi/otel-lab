@@ -1,43 +1,44 @@
 # Minimal values for KillerCoda (4GB node)
 # Disables heavy/non-essential services to fit within resource constraints
+# Component names match the official chart: https://github.com/open-telemetry/opentelemetry-helm-charts
 
 components:
-  # --- Keep: Core shopping flow + collector ---
+  # --- Keep: Core shopping flow ---
   frontend:
     enabled: true
   frontendProxy:
     enabled: true
-  productCatalogService:
+  cart:
     enabled: true
-  cartService:
+  checkout:
     enabled: true
-  checkoutService:
+  currency:
     enabled: true
-  currencyService:
+  shipping:
     enabled: true
-  shippingService:
+  payment:
     enabled: true
-  paymentService:
+  email:
     enabled: true
-  emailService:
+  productCatalog:
     enabled: true
 
   # --- Disable: Non-essential services ---
-  adService:
+  ad:
     enabled: false
-  recommendationService:
+  recommendation:
     enabled: false
-  quoteService:
+  quote:
     enabled: false
   loadGenerator:
     enabled: false
-  fraudDetectionService:
+  fraudDetection:
     enabled: false
-  accountingService:
+  accounting:
     enabled: false
   kafka:
     enabled: false
-  imageprovider:
+  imageProvider:
     enabled: false
   flagd:
     enabled: false

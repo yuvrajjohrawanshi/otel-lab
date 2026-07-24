@@ -5,26 +5,26 @@ project: otel-lab
 status: active
 ---
 
-# Lab 3: OpenTelemetry Demo Deployment
+# Lab 3: easyTravel Auto-Instrumentation (KillerCoda)
 
 ## Overview
-This lab deploys the official **OpenTelemetry Astronomy Shop** demo application to a Kubernetes cluster. The demo comes with ~15 auto-instrumented microservices written in multiple languages (Go, Java, .NET, Node.js, Python, Rust, etc.) and a pre-configured OTel Collector.
+This lab deploys the legacy **Dynatrace easyTravel** application to a Kubernetes cluster. Because easyTravel does not include built-in OpenTelemetry, we use the **OpenTelemetry Operator** to automatically inject the OpenTelemetry Java agent into the easyTravel pods at runtime.
 
 **Data Flow:**
-`App (Auto-Instrumented) --> OTel Collector`
+`easyTravel App (Auto-Instrumented by Operator) --> OTel Collector`
 
 ## Architecture
-The demo includes:
-- **Microservices:** ~15 services (frontend, cart, checkout, payment, shipping, etc.)
-- **OTel Collector:** Receives traces, metrics, and logs from all services
-- **Jaeger:** Built-in trace visualization UI
-- **Grafana:** Built-in dashboards for metrics
+The deployment includes:
+- **easyTravel:** A classic multi-tier application (backend, frontend, mongodb, load generator).
+- **OpenTelemetry Operator:** Watches for pods with the `instrumentation.opentelemetry.io/inject-java: "true"` annotation and injects the OTel agent.
+- **OTel Collector:** Receives traces from the injected agents and logs them to the console (for debugging/verification).
 
 ## Environment
-- **Kubernetes Platform:** [[KillerCoda]] (single-node playground with limited CPU/memory)
+- **Kubernetes Platform:** [[KillerCoda]] (single-node playground with 4GB memory)
+- **Note:** easyTravel uses fewer resources than the official OTel demo, making it much better suited for KillerCoda.
 
 ## Prerequisites
-- A running Kubernetes cluster (we use KillerCoda)
+- A running Kubernetes cluster (KillerCoda)
 - `kubectl` configured to communicate with your cluster
 - `helm` (v3+) installed
 
@@ -32,61 +32,53 @@ The demo includes:
 
 Run the deployment script:
 ```bash
-./deploy.sh
+./deploy-easytravel.sh
 ```
 
 This will:
-1. Add the OpenTelemetry Helm repository
-2. Create the `otel-demo` namespace
-3. Deploy the full demo via Helm
-4. Show a live pod monitoring dashboard until all pods are Running
+1. Install `cert-manager`
+2. Install the `OpenTelemetry Operator`
+3. Deploy an OTel Collector and the `Instrumentation` auto-injection rules
+4. Deploy the easyTravel Kubernetes manifests (which we've annotated for auto-injection)
 
-> **Note:** On KillerCoda, pods may take 3–5 minutes to start due to image pulls on limited bandwidth. If pods get stuck in `Pending` or `OOMKilled`, resources may be insufficient — see the Troubleshooting section below.
+> **Note:** On KillerCoda, pods may take 3–5 minutes to start due to image pulls on limited bandwidth.
 
 ## Accessing the Demo
 
 ### On KillerCoda
 KillerCoda provides port access via its built-in traffic routing. After running `kubectl port-forward`, use the **Traffic / Ports** tab at the top of the KillerCoda terminal to access the forwarded port.
 
-**Frontend (Astronomy Shop):**
+**easyTravel Frontend:**
 ```bash
-kubectl port-forward svc/otel-demo-frontend -n otel-demo 8080:8080 --address 0.0.0.0
+kubectl port-forward svc/angular-nginx-service -n otel-demo 80:80 --address 0.0.0.0
 ```
-Then access via KillerCoda's port `8080` link.
-
-**Jaeger UI (Traces):**
-```bash
-kubectl port-forward svc/otel-demo-jaeger-query -n otel-demo 16686:16686 --address 0.0.0.0
-```
-Then access via KillerCoda's port `16686` link.
+Then access via KillerCoda's port `80` link.
 
 ### On a local cluster
 ```bash
-kubectl port-forward svc/otel-demo-frontend -n otel-demo 8080:8080
-# Open http://localhost:8080
-
-kubectl port-forward svc/otel-demo-jaeger-query -n otel-demo 16686:16686
-# Open http://localhost:16686
+kubectl port-forward svc/angular-nginx-service -n otel-demo 80:80
+# Open http://localhost:80
 ```
 
-## Monitoring
+## Monitoring & Verification
 
+Watch the pods come up:
 ```bash
-kubectl get pods -n otel-demo
-kubectl get svc -n otel-demo
-kubectl logs -n otel-demo -l app.kubernetes.io/component=otelcol  # Collector logs
+kubectl get pods -n otel-demo -w
 ```
 
-## Troubleshooting
+Verify that the OpenTelemetry Operator successfully injected the Java agent into the pods:
+```bash
+kubectl describe pod -l app=backend -n otel-demo | grep opentelemetry-auto-instrumentation
+```
 
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| Pods stuck in `Pending` | Insufficient CPU/memory on KillerCoda | Restart the KillerCoda environment |
-| Pods in `OOMKilled` | Demo exceeds node memory | Reduce replicas or disable non-essential services |
-| Pods in `ImagePullBackOff` | Rate-limited or slow pulls | Wait and retry — KillerCoda bandwidth is limited |
+Verify that traces are arriving at the Collector:
+```bash
+kubectl logs -l app.kubernetes.io/name=my-collector-collector -n otel-demo -f
+```
 
 ## Cleanup
 ```bash
-helm uninstall otel-demo -n otel-demo
 kubectl delete namespace otel-demo
+kubectl delete namespace cert-manager
 ```

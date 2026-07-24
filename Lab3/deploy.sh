@@ -22,8 +22,7 @@ kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f 
 
 echo "==> 3. Deploying OpenTelemetry Demo..."
 helm upgrade --install $RELEASE_NAME open-telemetry/opentelemetry-demo \
-  --namespace $NAMESPACE \
-  --wait --timeout 10m
+  --namespace $NAMESPACE
 
 echo "=========================================================================="
 echo "OpenTelemetry Demo Deployment Complete!"

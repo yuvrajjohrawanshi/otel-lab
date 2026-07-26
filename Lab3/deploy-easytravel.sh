@@ -18,6 +18,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MANIFESTS_DIR="$SCRIPT_DIR/easytravel-manifests"
 
 echo "==> 1. Cleaning up any leftover flaky operator installations..."
+helm uninstall opentelemetry-operator -n $NAMESPACE 2>/dev/null
+kubectl delete deployment opentelemetry-operator -n $NAMESPACE --ignore-not-found=true 2>/dev/null
 kubectl delete mutatingwebhookconfigurations --all --ignore-not-found=true 2>/dev/null
 kubectl delete validatingwebhookconfigurations --all --ignore-not-found=true 2>/dev/null
 kubectl delete namespace cert-manager --ignore-not-found=true 2>/dev/null

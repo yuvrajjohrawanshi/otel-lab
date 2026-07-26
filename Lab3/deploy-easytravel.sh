@@ -53,17 +53,25 @@ spec:
             endpoint: 0.0.0.0:4317
           http:
             endpoint: 0.0.0.0:4318
+    processors:
+      batch: {}
     exporters:
       debug:
         verbosity: detailed
+      otlphttp/newrelic:
+        endpoint: "https://otlp.nr-data.net:443"
+        headers:
+          api-key: "3f25decf1051541f1ff3ca603353f3b578beNRAL"
     service:
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [debug]
+          processors: [batch]
+          exporters: [debug, otlphttp/newrelic]
         metrics:
           receivers: [otlp]
-          exporters: [debug]
+          processors: [batch]
+          exporters: [debug, otlphttp/newrelic]
 ---
 apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation

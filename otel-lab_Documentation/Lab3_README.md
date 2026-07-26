@@ -17,7 +17,7 @@ This lab deploys the legacy **Dynatrace easyTravel** application to a Kubernetes
 The deployment includes:
 - **easyTravel:** A classic multi-tier application (backend, frontend, mongodb, load generator).
 - **OpenTelemetry Operator:** Watches for pods with the `instrumentation.opentelemetry.io/inject-java: "true"` annotation and injects the OTel agent.
-- **OTel Collector:** Receives traces from the injected agents and logs them to the console (for debugging/verification).
+- **OTel Collector:** Receives traces and metrics from the injected agents, logs them to the console (debug exporter), and forwards them to **New Relic (US region)** (`https://otlp.nr-data.net:443`).
 
 ## Environment
 - **Kubernetes Platform:** [[KillerCoda]] (single-node playground with 4GB memory)

@@ -57,7 +57,30 @@ chmod +x deploy-easytravel-bindplane.sh
 
 ---
 
+## Accessing the Demo (KillerCoda)
+After pods are Running, port-forward the easyTravel frontend on port 80:
+```bash
+kubectl port-forward svc/angular-nginx-service -n otel-demo 80:80 --address 0.0.0.0
+```
+Then access via KillerCoda's **Traffic -> Port 80** link.
+
+---
+
 ## Verification & Monitoring
-- **Check easyTravel pods:** `kubectl get pods -n otel-demo -w`
-- **Check BindPlane agent pods:** `kubectl get pods -n bindplane-agent -w`
-- **Check agent logs:** `kubectl logs -l app.kubernetes.io/name=bindplane-node-agent -n bindplane-agent -f`
+
+### 1. Watch Pod Statuses
+```bash
+# easyTravel Application Pods:
+kubectl get pods -n otel-demo -w
+
+# BindPlane Agent Pods:
+kubectl get pods -n bindplane-agent -w
+```
+
+### 2. Check BindPlane Agent Logs
+You can view logs via terminal or UI:
+```bash
+# Terminal (kubectl):
+kubectl logs -l app.kubernetes.io/name=bindplane-node-agent -n bindplane-agent -f
+```
+*(Or navigate to **Agents -> [Agent Name] -> Logs** in **[app.observiq.com](https://app.observiq.com)**).*

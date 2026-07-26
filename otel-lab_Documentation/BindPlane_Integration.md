@@ -67,31 +67,38 @@ easyTravel Pods (initContainer) ---> OTel Collector Agent ---> New Relic (US)
 
 ---
 
-## How to Integrate [[BindPlane]] (Without Modifying Current Files)
+## How to Integrate [[BindPlane]] SaaS (Without Modifying Current Files)
 
-To add [[BindPlane]] to your cluster alongside the current lab setup:
+Using **BindPlane SaaS (observIQ Cloud)** is the ideal choice for resource-constrained environments like KillerCoda because **zero control-plane infrastructure runs in your Kubernetes cluster**. You only run lightweight Collector agents that connect to the cloud control plane via WebSockets (`wss://`).
 
-### Step 1: Deploy [[BindPlane]] OP Server
-You can deploy the community edition of **BindPlane OP** into your Kubernetes cluster using Helm or a standard deployment manifest:
-```bash
-helm repo add observiq https://observiq.github.io/bindplane-op-helm
-helm install bindplane observiq/bindplane -n otel-demo
-```
-*(Alternatively, you can use the managed cloud SaaS version at [observIO Cloud](https://observiq.com)).*
+### Step 1: Log in to BindPlane SaaS
+1. Log in to your **[BindPlane SaaS / observIQ Cloud](https://app.observiq.com)** tenant.
+2. Navigate to **Configurations -> Create Configuration**.
 
-### Step 2: Create a Configuration in the UI
-1. Access the [[BindPlane]] UI via `kubectl port-forward svc/bindplane -n otel-demo 3001:3001`.
-2. Click **Configurations -> Create Configuration**.
-3. Add an **OTLP Source** (ports `4317` / `4318`).
-4. Add a **New Relic Destination** and paste your Ingest License Key.
+### Step 2: Configure Your Pipeline in the SaaS UI
+1. Add an **OTLP Source**:
+   - Enable HTTP (`4318`) and gRPC (`4317`) receivers.
+2. Add a **New Relic Destination**:
+   - Select **New Relic**.
+   - Enter your New Relic US Ingest License Key (`3f25decf...NRAL`).
+   - Save the configuration.
 
-### Step 3: Connect a Collector Agent via OpAMP
-When you create an agent in [[BindPlane]], it generates a lightweight Kubernetes command containing your **Secret Key** and **OpAMP Endpoint**:
-```yaml
-env:
-  - name: OPAMP_ENDPOINT
-    value: "ws://bindplane.otel-demo.svc.cluster.local:3001/v1/opamp"
-  - name: OPAMP_SECRET_KEY
-    value: "<YOUR_BINDPLANE_SECRET_KEY>"
-```
-Once deployed, the Collector registers in the [[BindPlane]] UI, and you can control 100% of its telemetry routing from your browser!
+### Step 3: Install the BindPlane SaaS Agent in Kubernetes
+1. In the BindPlane SaaS portal, go to **Agents -> Install Agent**.
+2. Select **Kubernetes** as your operating system.
+3. Copy the generated `helm install` or `kubectl apply` command provided by BindPlane SaaS. It automatically includes your tenant's OpAMP credentials:
+   ```yaml
+   env:
+     - name: OPAMP_ENDPOINT
+       value: "wss://opamp.observiq.com/v1/opamp"
+     - name: OPAMP_SECRET_KEY
+       value: "<YOUR_BINDPLANE_SAAS_SECRET_KEY>"
+     - name: OPAMP_AGENT_NAME
+       value: "killercoda-otel-agent"
+   ```
+4. Deploy the agent to your `otel-demo` namespace.
+
+### Step 4: Route easyTravel Telemetry to the BindPlane Agent
+Once the BindPlane agent pod is running in Kubernetes, it automatically registers in your SaaS dashboard. 
+
+Your `[[backend]]` and `[[angular-frontend]]` pods can send traces to this agent immediately, and you can edit 100% of your telemetry rules, filters, and New Relic forwarding from [app.observiq.com](https://app.observiq.com) without ever touching a YAML file!

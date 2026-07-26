@@ -74,7 +74,7 @@ kubectl describe pod -l app=backend -n otel-demo | grep opentelemetry-auto-instr
 
 Verify that traces are arriving at the Collector:
 ```bash
-kubectl logs -l app.kubernetes.io/name=my-collector-collector -n otel-demo -f
+kubectl logs deployment/my-collector-collector -n otel-demo -f
 ```
 
 ## Cleanup

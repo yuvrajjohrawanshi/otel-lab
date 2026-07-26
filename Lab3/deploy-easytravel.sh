@@ -35,8 +35,9 @@ kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=opentelemetry-
 echo "Waiting an extra 15 seconds for the Operator webhook to become fully active..."
 sleep 15
 
-echo "==> 4. Deploying OTel Collector and Auto-Instrumentation rules..."
-cat <<EOF | kubectl apply -f -
+echo "==> 4. Deploying OTel Collector and Auto-Instrumentation rules (with retry for webhook readiness)..."
+for i in {1..10}; do
+  cat <<EOF | kubectl apply -f - && break
 ---
 apiVersion: opentelemetry.io/v1alpha1
 kind: OpenTelemetryCollector
@@ -80,6 +81,9 @@ spec:
   java:
     image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
 EOF
+  echo "Webhook not ready yet, retrying in 10 seconds ($i/10)..."
+  sleep 10
+done
 
 echo "==> 5. Deploying easyTravel (auto-instrumented)..."
 kubectl apply -f "$MANIFESTS_DIR" -n $NAMESPACE
@@ -97,5 +101,5 @@ echo "To view easyTravel Frontend (once running):"
 echo "  kubectl port-forward svc/angular-nginx-service -n $NAMESPACE 80:80 --address 0.0.0.0"
 echo ""
 echo "To view traces arriving at the Collector:"
-echo "  kubectl logs -l app.kubernetes.io/name=my-collector-collector -n $NAMESPACE -f"
+echo "  kubectl logs deployment/my-collector-collector -n $NAMESPACE -f"
 echo "=========================================================================="

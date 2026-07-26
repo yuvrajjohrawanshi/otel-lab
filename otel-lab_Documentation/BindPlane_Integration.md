@@ -98,10 +98,25 @@ Using **BindPlane SaaS (observIQ Cloud)** is the ideal choice for resource-const
    ```
 4. Deploy the agent to your `otel-demo` namespace.
 
-### Step 4: Route easyTravel Telemetry to the BindPlane Agent
-Once the BindPlane agent pod is running in Kubernetes, it automatically registers in your SaaS dashboard. 
+### Step 4: Keep Application Auto-Instrumentation & Point to BindPlane Agent
+> [!IMPORTANT]
+> **The BindPlane Agent is ONLY a pipeline router/receiver.** It does NOT automatically instrument Java/Node.js application memory processes by itself! You **must still auto-instrument your application pods** (`[[backend]]`, `[[angular-frontend]]`, `[[loadgenerator]]`) using the OpenTelemetry Java Agent (`initContainer` + `JAVA_TOOL_OPTIONS`).
 
-Your `[[backend]]` and `[[angular-frontend]]` pods can send traces to this agent immediately, and you can edit 100% of your telemetry rules, filters, and New Relic forwarding from [app.observiq.com](https://app.observiq.com) without ever touching a YAML file!
+To route your auto-instrumented easyTravel traces to BindPlane instead of a standalone collector, simply update `OTEL_EXPORTER_OTLP_ENDPOINT` in your application manifests (`backend.yml`, `angular-frontend.yml`, `loadgenerator.yml`):
+
+```yaml
+env:
+  - name: JAVA_TOOL_OPTIONS
+    value: "-javaagent:/otel-auto-instrumentation/javaagent.jar"
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    # Point to the BindPlane agent Kubernetes service:
+    value: "http://bindplane-node-agent.bindplane-agent.svc.cluster.local:4318"
+  - name: OTEL_SERVICE_NAME
+    value: "easytravel-backend"
+```
+
+Once updated, your auto-instrumented app generates the trace spans and sends them to the BindPlane Agent on port `4318`. From there, you can control 100% of your telemetry rules, filtering, and New Relic forwarding from **[app.observiq.com](https://app.observiq.com)** without ever touching a YAML file!
+
 
 ---
 

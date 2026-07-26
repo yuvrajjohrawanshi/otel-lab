@@ -11,12 +11,22 @@ spec:
       labels:
         app: angular-frontend
         app.kubernetes.io/name: angular-frontend
-        app.kubernetes.io/part-of: easytravel
-      annotations:
-        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
+      initContainers:
+        - name: opentelemetry-auto-instrumentation
+          image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+          command: ["cp", "-r", "/javaagent.jar", "/otel-auto-instrumentation/javaagent.jar"]
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
       containers:
         - env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/otel-auto-instrumentation/javaagent.jar"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.otel-demo.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "easytravel-angular-frontend"
             - name: ET_BACKEND_URL
               value: http://backend-service:8080
           image: dynatrace/easytravel-angular-frontend
@@ -30,6 +40,12 @@ spec:
               memory: "500Mi"
             limits:
               memory: "500Mi"
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
+      volumes:
+        - name: otel-agent-volume
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

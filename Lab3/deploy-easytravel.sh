@@ -3,49 +3,37 @@
 # =============================================================================
 # Lab 3: Deploy easyTravel with OpenTelemetry Auto-Instrumentation
 #
-# This script deploys the legacy Dynatrace easyTravel application.
-# Because easyTravel has no built-in telemetry, we deploy the OpenTelemetry
-# Operator to inject Java agents into the pods at runtime.
+# PERMANENT RELIABLE ARCHITECTURE (Zero Operators / Zero Webhooks):
+# Instead of flaky Kubernetes Operators and mutating webhooks (which fail on
+# KillerCoda's CNI with "no route to host"), this script deploys:
+# 1. A standard Kubernetes Deployment + ConfigMap for the OpenTelemetry Collector.
+# 2. easyTravel pods with an initContainer that injects the OpenTelemetry Java
+#    agent directly into the JVM without needing an operator.
 #
-# Data Flow: App (Auto-Instrumented by Operator) --> OTel Collector
+# Data Flow: easyTravel App --> OTel Collector --> New Relic (US) + Console Logs
 # =============================================================================
 
 NAMESPACE="otel-demo"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MANIFESTS_DIR="$SCRIPT_DIR/easytravel-manifests"
 
-echo "==> 1. Creating namespace $NAMESPACE..."
+echo "==> 1. Cleaning up any leftover flaky operator installations..."
+kubectl delete mutatingwebhookconfigurations --all --ignore-not-found=true 2>/dev/null
+kubectl delete validatingwebhookconfigurations --all --ignore-not-found=true 2>/dev/null
+kubectl delete namespace cert-manager --ignore-not-found=true 2>/dev/null
+
+echo "==> 2. Creating namespace $NAMESPACE..."
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-echo "==> 2. Installing cert-manager (prerequisite for OpenTelemetry Operator)..."
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
-echo "Waiting for cert-manager to be ready (this may take a minute)..."
-kubectl wait --for=condition=Ready pods --all -n cert-manager --timeout=300s
-
-echo "==> 3. Installing OpenTelemetry Operator via Helm..."
-helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
-helm repo update
-helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator \
-  --namespace $NAMESPACE \
-  --set "manager.collectorImage.repository=otel/opentelemetry-collector-k8s"
-
-echo "Waiting for OpenTelemetry Operator to be ready..."
-kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=opentelemetry-operator -n $NAMESPACE --timeout=300s
-
-echo "Waiting an extra 15 seconds for the Operator webhook to become fully active..."
-sleep 15
-
-echo "==> 4. Deploying OTel Collector and Auto-Instrumentation rules (with retry for webhook readiness)..."
-for i in {1..10}; do
-  cat <<EOF | kubectl apply -f - && break
----
-apiVersion: opentelemetry.io/v1alpha1
-kind: OpenTelemetryCollector
+echo "==> 3. Deploying OpenTelemetry Collector (ConfigMap + Deployment + Service)..."
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: my-collector
+  name: otel-collector-config
   namespace: $NAMESPACE
-spec:
-  config: |
+data:
+  otel-collector-config.yaml: |
     receivers:
       otlp:
         protocols:
@@ -73,41 +61,79 @@ spec:
           processors: [batch]
           exporters: [debug, otlphttp/newrelic]
 ---
-apiVersion: opentelemetry.io/v1alpha1
-kind: Instrumentation
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: my-instrumentation
+  name: otel-collector
+  namespace: $NAMESPACE
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:latest
+          args:
+            - "--config=/etc/otel-collector-config.yaml"
+          ports:
+            - containerPort: 4317
+              name: grpc
+            - containerPort: 4318
+              name: http
+          resources:
+            requests:
+              memory: "100Mi"
+              cpu: "100m"
+            limits:
+              memory: "300Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/otel-collector-config.yaml
+              subPath: otel-collector-config.yaml
+      volumes:
+        - name: config-volume
+          configMap:
+            name: otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
   namespace: $NAMESPACE
 spec:
-  exporter:
-    endpoint: http://my-collector-collector.$NAMESPACE.svc.cluster.local:4317
-  propagators:
-    - tracecontext
-    - baggage
-  sampler:
-    type: always_on
-  java:
-    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+  ports:
+    - name: grpc
+      port: 4317
+      targetPort: 4317
+    - name: http
+      port: 4318
+      targetPort: 4318
+  selector:
+    app: otel-collector
+  type: ClusterIP
 EOF
-  echo "Webhook not ready yet, retrying in 10 seconds ($i/10)..."
-  sleep 10
-done
 
-echo "==> 5. Deploying easyTravel (auto-instrumented)..."
+echo "==> 4. Deploying easyTravel (with initContainer Auto-Instrumentation)..."
 kubectl apply -f "$MANIFESTS_DIR" -n $NAMESPACE
 
 echo "=========================================================================="
-echo "Deployment Complete!"
+echo "Deployment Complete! (Zero Operators / Zero Webhooks)"
 echo ""
-echo "Note: The OTel operator will automatically inject the Java agent into the"
-echo "easyTravel pods as they start up."
-echo ""
-echo "To monitor pod startup on KillerCoda (may take 3-5 mins):"
+echo "To monitor pod startup on KillerCoda (may take 2-4 mins):"
 echo "  kubectl get pods -n $NAMESPACE -w"
 echo ""
 echo "To view easyTravel Frontend (once running):"
 echo "  kubectl port-forward svc/angular-nginx-service -n $NAMESPACE 80:80 --address 0.0.0.0"
 echo ""
 echo "To view traces arriving at the Collector:"
-echo "  kubectl logs deployment/my-collector-collector -n $NAMESPACE -f"
+echo "  kubectl logs deployment/otel-collector -n $NAMESPACE -f"
 echo "=========================================================================="

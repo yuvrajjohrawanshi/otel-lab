@@ -102,3 +102,33 @@ Using **BindPlane SaaS (observIQ Cloud)** is the ideal choice for resource-const
 Once the BindPlane agent pod is running in Kubernetes, it automatically registers in your SaaS dashboard. 
 
 Your `[[backend]]` and `[[angular-frontend]]` pods can send traces to this agent immediately, and you can edit 100% of your telemetry rules, filters, and New Relic forwarding from [app.observiq.com](https://app.observiq.com) without ever touching a YAML file!
+
+---
+
+## How to Check BindPlane Agent Logs
+
+You can inspect the logs of your running BindPlane agent using either the Kubernetes terminal or directly from the BindPlane SaaS web interface:
+
+### Method 1: From the Kubernetes Terminal (`kubectl`)
+1. **Find the running BindPlane agent pod name:**
+   ```bash
+   kubectl get pods -A | grep -i -E "bindplane|observiq|agent"
+   ```
+2. **Stream the live logs:**
+   ```bash
+   kubectl logs -l app.kubernetes.io/name=bindplane-agent -n otel-demo -f
+   ```
+   *(Adjust `-l` label or namespace `-n` depending on the installation command you used).*
+
+3. **What to look for in successful startup logs:**
+   ```text
+   connected to OpAMP server wss://opamp.observiq.com/v1/opamp
+   received remote configuration from OpAMP server
+   OTLP receiver started on 0.0.0.0:4317 / 0.0.0.0:4318
+   ```
+
+### Method 2: From the BindPlane SaaS UI ([app.observiq.com](https://app.observiq.com))
+1. Go to **Agents** in the left navigation menu.
+2. Click on your agent (`killercoda-otel-agent`) in the list.
+3. Click the **Logs** tab or **View Recent Logs** button.
+4. You can inspect live agent logs, connection status, and export errors directly in your browser without logging into Kubernetes!

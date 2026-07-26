@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: angular-frontend
+spec:
+  selector:
+    matchLabels:
+      app: angular-frontend
+  template:
+    metadata:
+      labels:
+        app: angular-frontend
+        app.kubernetes.io/name: angular-frontend
+    spec:
+      initContainers:
+        - name: opentelemetry-auto-instrumentation
+          image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+          command: ["cp", "-r", "/javaagent.jar", "/otel-auto-instrumentation/javaagent.jar"]
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
+      containers:
+        - env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/otel-auto-instrumentation/javaagent.jar"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://bindplane-node-agent.bindplane-agent.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: "easytravel-angular-frontend"
+            - name: ET_BACKEND_URL
+              value: http://backend-service:8080
+          image: dynatrace/easytravel-angular-frontend
+          imagePullPolicy: Always
+          name: angular-frontend
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              memory: "500Mi"
+            limits:
+              memory: "500Mi"
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
+      volumes:
+        - name: otel-agent-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: angular-frontend-service
+spec:
+  ports:
+    - name: web
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: angular-frontend
+  type: ClusterIP

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: angular-loadgenerator
+spec:
+  selector:
+    matchLabels:
+      app: angular-loadgenerator
+  template:
+    metadata:
+      labels:
+        app: angular-loadgenerator
+        app.kubernetes.io/name: angular-loadgenerator
+    spec:
+      initContainers:
+        - name: opentelemetry-auto-instrumentation
+          image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+          command: ["cp", "-r", "/javaagent.jar", "/otel-auto-instrumentation/javaagent.jar"]
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
+      containers:
+        - env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/otel-auto-instrumentation/javaagent.jar"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://bindplane-node-agent.bindplane-agent.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: "easytravel-loadgenerator"
+            - name: ET_ANGULAR_FRONTEND_URL
+              value: http://angular-nginx-service:80
+            - name: ET_APM_SERVER_DEFAULT
+              value: APM
+            - name: ET_VISIT_NUMBER
+              value: "2"
+            - name: MAX_CHROME_DRIVERS
+              value: "4"
+            - name: ET_PROBLEMS
+              value: BadCacheSynchronization,CPULoad,DatabaseCleanup,DatabaseSlowdown,FetchSizeTooSmall,JourneySearchError404,JourneySearchError500,LoginProblems,MobileErrors,TravellersOptionBox
+          image: dynatrace/easytravel-headless-loadgen
+          name: angular-loadgen
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: "800Mi"
+              cpu: "500m"
+            limits:
+              memory: "800Mi"
+              cpu: "1"
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
+      volumes:
+        - name: otel-agent-volume
+          emptyDir: {}

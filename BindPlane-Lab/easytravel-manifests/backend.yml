@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/name: backend
+    spec:
+      initContainers:
+        - name: opentelemetry-auto-instrumentation
+          image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+          command: ["cp", "-r", "/javaagent.jar", "/otel-auto-instrumentation/javaagent.jar"]
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
+      containers:
+        - env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/otel-auto-instrumentation/javaagent.jar"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://bindplane-node-agent.bindplane-agent.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: "easytravel-backend"
+            - name: ET_DATABASE_LOCATION
+              value: mongodb-service:27017
+            - name: ET_MONGO_AUTH_DB
+              value: admin
+            - name: ET_DATABASE_USER
+              value: etAdmin
+            - name: ET_DATABASE_PASSWORD
+              value: adminadmin
+          image: dynatrace/easytravel-backend
+          imagePullPolicy: Always
+          name: backend
+          ports:
+            - containerPort: 8009
+              protocol: TCP
+            - containerPort: 8005
+              protocol: TCP
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              memory: "500Mi"
+            limits:
+              memory: "500Mi"
+          volumeMounts:
+            - name: otel-agent-volume
+              mountPath: /otel-auto-instrumentation
+      volumes:
+        - name: otel-agent-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  ports:
+    - name: port5
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: port3
+      port: 8009
+      protocol: TCP
+      targetPort: 8009
+    - name: port4
+      port: 8005
+      protocol: TCP
+      targetPort: 8005
+  selector:
+    app: backend
+  type: ClusterIP

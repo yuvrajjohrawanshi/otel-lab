@@ -24,7 +24,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: "-javaagent:/otel-auto-instrumentation/javaagent.jar"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector.otel-demo.svc.cluster.local:4317"
+              value: "http://otel-collector.otel-demo.svc.cluster.local:4318"
             - name: OTEL_SERVICE_NAME
               value: "easytravel-angular-frontend"
             - name: ET_BACKEND_URL

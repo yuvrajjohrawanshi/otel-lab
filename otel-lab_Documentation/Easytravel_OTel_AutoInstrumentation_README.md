@@ -5,7 +5,7 @@ project: otel-lab
 status: active
 ---
 
-# Lab 3: easyTravel Auto-Instrumentation (KillerCoda)
+# [[easytravel-otel-autoinstrumentation]]: easyTravel Auto-Instrumentation on KillerCoda
 
 ## Overview
 This lab deploys the legacy **Dynatrace easyTravel** application to a Kubernetes cluster and sends telemetry to **New Relic (US region)**.
@@ -38,7 +38,7 @@ The deployment includes:
 
 Run the deployment script:
 ```bash
-./Lab3/deploy-easytravel.sh
+./easytravel-otel-autoinstrumentation/deploy-easytravel.sh
 ```
 
 This will:

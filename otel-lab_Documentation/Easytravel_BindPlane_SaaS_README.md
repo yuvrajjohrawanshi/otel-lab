@@ -5,7 +5,7 @@ project: otel-lab
 status: active
 ---
 
-# [[BindPlane]] SaaS Lab (`BindPlane-Lab/`)
+# [[easytravel-bindplane-saas]] (`easytravel-bindplane-saas/`)
 
 ## Overview
 This lab demonstrates how to integrate **[[BindPlane]] SaaS (observIQ Cloud)** as your enterprise observability control plane with an auto-instrumented application (`[[backend]]`, `[[angular-frontend]]`, `[[loadgenerator]]`).
@@ -37,9 +37,9 @@ Auto-Instrumented easyTravel Pods ---> BindPlane Agent (K8s) ---> New Relic (US)
 ## Lab Execution Instructions
 
 ### 1. Deploy Auto-Instrumented easyTravel
-From the `BindPlane-Lab/` directory, run:
+From the `easytravel-bindplane-saas/` directory, run:
 ```bash
-cd BindPlane-Lab/
+cd easytravel-bindplane-saas/
 chmod +x deploy-easytravel-bindplane.sh
 ./deploy-easytravel-bindplane.sh
 ```
